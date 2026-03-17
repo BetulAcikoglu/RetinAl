@@ -1,6 +1,24 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 const NewAnalysisPage = () => {
+  const [selectedImage, setSelectedImage] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBQes98Jgl4LN-V9Tsc6Q1L0OQUUiiAKhFD8Ivi31tJ8RVMRYeEUeRFJDx6pK8CZulD3vr-pMDI0t4e5xkX0C_NpfYt4zuZLESUAknNxEjd1iz7_AcbMO8knCnUJx6oAkPqszMOheo6LTrGcQxMqh4UMPt1LSSJKNndmERQm-PGs64iUfmjMh_4FVUMe23yj5Ypk3sgLwfncx_DXUY_QLa12cWePS7YYK6CWAaBIIN_5fslaPEbtINHAUdyehCtt-9suDQDfh5XxZCj");
+  const fileInputRef = useRef(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
   useEffect(() => {
     // Apply global fonts and styles consistent with HomePage
     const style = document.createElement('style');
@@ -96,7 +114,6 @@ const NewAnalysisPage = () => {
               </div>
             </section>
 
-            {/* Right Section: Eye Image */}
             <section className="rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-sm p-8 shadow-2xl transition-all hover:bg-white/[0.05]">
               <div className="mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
                 <span className="material-symbols-outlined text-cyan-400">visibility</span>
@@ -104,15 +121,28 @@ const NewAnalysisPage = () => {
               </div>
 
               <div className="flex flex-col items-center justify-center">
-                <div className="group relative aspect-square w-full max-w-[280px] overflow-hidden rounded-full border-4 border-cyan-500/20 bg-slate-900 shadow-[0_0_50px_rgba(6,182,212,0.15)] transition-all hover:border-cyan-400/40">
-                  <img className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Close up of a human eye retina fundus scan" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQes98Jgl4LN-V9Tsc6Q1L0OQUUiiAKhFD8Ivi31tJ8RVMRYeEUeRFJDx6pK8CZulD3vr-pMDI0t4e5xkX0C_NpfYt4zuZLESUAknNxEjd1iz7_AcbMO8knCnUJx6oAkPqszMOheo6LTrGcQxMqh4UMPt1LSSJKNndmERQm-PGs64iUfmjMh_4FVUMe23yj5Ypk3sgLwfncx_DXUY_QLa12cWePS7YYK6CWAaBIIN_5fslaPEbtINHAUdyehCtt-9suDQDfh5XxZCj" alt="Retina" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-cyan-950/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleImageChange} 
+                  className="hidden" 
+                  accept="image/*" 
+                />
+                <div 
+                  onClick={triggerFileInput}
+                  className="group relative aspect-square w-full max-w-[280px] overflow-hidden rounded-full border-4 border-cyan-500/20 bg-slate-900 shadow-[0_0_50px_rgba(6,182,212,0.15)] transition-all hover:border-cyan-400/40 cursor-pointer"
+                >
+                  <img className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" src={selectedImage} alt="Retina" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-cyan-950/60 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
                     <span className="material-symbols-outlined text-white text-4xl">add_a_photo</span>
                   </div>
                   {/* Scan effect placeholder consistent with HomePage eye */}
                   <div className="absolute inset-0 pointer-events-none border border-cyan-400/20 rounded-full animate-pulse"></div>
                 </div>
-                <button className="mt-8 flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-8 py-3 text-sm font-semibold text-cyan-400 hover:bg-cyan-400/10 transition-all active:scale-95">
+                <button 
+                  onClick={triggerFileInput}
+                  className="mt-8 flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 px-8 py-3 text-sm font-semibold text-cyan-400 hover:bg-cyan-400/10 transition-all active:scale-95"
+                >
                   <span className="material-symbols-outlined text-lg">sync</span>
                   Görseli Değiştir
                 </button>

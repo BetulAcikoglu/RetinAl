@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const NewAnalysisPage = () => {
+  const navigate = useNavigate();
   const [selectedImage, setSelectedImage] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBQes98Jgl4LN-V9Tsc6Q1L0OQUUiiAKhFD8Ivi31tJ8RVMRYeEUeRFJDx6pK8CZulD3vr-pMDI0t4e5xkX0C_NpfYt4zuZLESUAknNxEjd1iz7_AcbMO8knCnUJx6oAkPqszMOheo6LTrGcQxMqh4UMPt1LSSJKNndmERQm-PGs64iUfmjMh_4FVUMe23yj5Ypk3sgLwfncx_DXUY_QLa12cWePS7YYK6CWAaBIIN_5fslaPEbtINHAUdyehCtt-9suDQDfh5XxZCj");
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -255,6 +257,7 @@ const NewAnalysisPage = () => {
 
               <div className="flex justify-center lg:justify-end">
                 <button
+                  onClick={() => navigate('/analysis-result')}
                   className="group relative inline-flex items-center justify-center overflow-hidden"
                   style={{
                     gap: '20px',

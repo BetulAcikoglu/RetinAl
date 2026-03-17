@@ -1,9 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const AnalysisResultPage = () => {
   const reportRef = useRef();
+  // Örnek olarak %85 (Yüksek Risk) ayarlandı. 
+  // Dinamik olması durumunda bu state değiştiğinde renkler de değişecektir.
+  const [riskScore, setRiskScore] = useState(85); 
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -35,14 +38,39 @@ const AnalysisResultPage = () => {
     };
   }, []);
 
+  // Risk seviyesine göre renk belirleme fonksiyonu
+  const getRiskColors = (score) => {
+    if (score >= 70) {
+      return { 
+        text: 'text-red-500', 
+        bg: 'bg-red-500/10', 
+        border: 'border-red-500/20', 
+        bar: 'bg-red-500',
+        label: 'Yüksek Risk' 
+      };
+    } else if (score >= 40) {
+      return { 
+        text: 'text-yellow-500', 
+        bg: 'bg-yellow-500/10', 
+        border: 'border-yellow-500/20', 
+        bar: 'bg-yellow-500',
+        label: 'Orta Risk' 
+      };
+    } else {
+      return { 
+        text: 'text-green-500', 
+        bg: 'bg-green-500/10', 
+        border: 'border-green-500/20', 
+        bar: 'bg-green-500',
+        label: 'Düşük Risk' 
+      };
+    }
+  };
+
+  const riskStyles = getRiskColors(riskScore);
+
   const generatePDF = async () => {
     const element = reportRef.current;
-    
-    // Temporarily apply white theme for PDF capture
-    const originalStyle = element.getAttribute('style');
-    const isDark = document.documentElement.classList.contains('dark');
-    
-    // Force a clean white look for PDF
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
@@ -57,21 +85,38 @@ const AnalysisResultPage = () => {
                 el.style.background = '#f9fafb';
                 el.style.borderColor = '#e5e7eb';
             }
-            if (el.classList.contains('text-cyan-400') || el.classList.contains('text-cyan-500/80')) {
-                el.style.color = '#1152d4';
-            }
         });
+        // PDF'de ikon ve metin renklerini korumak için manuel atamalar gerekebilir
+        const riskBox = clonedDoc.querySelector('.risk-container');
+        if (riskBox) riskBox.style.borderColor = '#fee2e2'; // High risk için örnek
       }
     });
 
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgProps = pdf.getImageProperties(imgData);
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
     pdf.save('RetinAL-Analiz-Raporu.pdf');
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'RetinAL Göz Analiz Raporu',
+          text: 'RetinAL yapay zeka tarafından hazırlanan göz sağlığı raporumu inceleyin.',
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.log('Paylaşım iptal edildi veya bir hata oluştu', error);
+      }
+    } else {
+      // Web Share API desteklenmiyorsa linki kopyala
+      navigator.clipboard.writeText(window.location.href);
+      alert('Paylaşım bağlantısı kopyalandı!');
+    }
   };
 
   const handlePrint = () => {
@@ -113,7 +158,7 @@ const AnalysisResultPage = () => {
               <span className="hidden sm:inline">İndir</span>
             </button>
             <button 
-              onClick={generatePDF}
+              onClick={handleShare}
               className="flex items-center justify-center rounded-lg h-10 bg-white/5 border border-white/10 text-white gap-2 text-sm font-bold px-4 hover:bg-white/10 transition-colors backdrop-blur-md"
             >
               <span className="material-symbols-outlined text-[20px]">share</span>
@@ -157,15 +202,15 @@ const AnalysisResultPage = () => {
                         <span className="material-symbols-outlined text-cyan-400">analytics</span>
                         <h2 className="text-white text-xl font-bold tracking-tight">Model Sonucu</h2>
                     </div>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-1">
-                        <div className="flex flex-col gap-3 rounded-xl p-6 bg-cyan-500/10 border border-cyan-500/20">
-                            <p className="text-cyan-400 text-sm font-bold uppercase tracking-widest">Genel Risk Durumu</p>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className={`risk-container flex flex-col gap-3 rounded-xl p-6 ${riskStyles.bg} border ${riskStyles.border}`}>
+                            <p className={`${riskStyles.text} text-sm font-bold uppercase tracking-widest`}>Genel Risk Durumu</p>
                             <div className="flex items-baseline gap-2">
-                                <p className="text-cyan-400 text-3xl font-black leading-tight">%85</p>
-                                <p className="text-cyan-400 font-bold">Yüksek Risk</p>
+                                <p className={`${riskStyles.text} text-3xl font-black leading-tight`}>%{riskScore}</p>
+                                <p className={`${riskStyles.text} font-bold`}>{riskStyles.label}</p>
                             </div>
                             <div className="w-full bg-white/10 rounded-full h-2 mt-2">
-                                <div className="bg-cyan-400 h-2 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.4)]" style={{ width: '85%' }}></div>
+                                <div className={`${riskStyles.bar} h-2 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.2)]`} style={{ width: `${riskScore}%` }}></div>
                             </div>
                         </div>
                     </div>
@@ -183,7 +228,7 @@ const AnalysisResultPage = () => {
                         </p>
                         <div className="bg-white/5 p-6 rounded-lg border-l-4 border-cyan-400">
                             <p className="italic text-slate-200">
-                                "Görüntülerdeki damar yapılarında kayma ve doku değişimleri mevcuttur. %85'lik yüksek risk puanı, bu yapısal değişimlerle doğrudan ilişkilidir."
+                                "Görüntülerdeki damar yapılarında kayma ve doku değişimleri mevcuttur. %{riskScore}'lik {riskStyles.label.toLowerCase()} puanı, bu yapısal değişimlerle doğrudan ilişkilidir."
                             </p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
@@ -219,9 +264,9 @@ const AnalysisResultPage = () => {
                         <span className="material-symbols-outlined text-cyan-400">image</span>
                         <h2 className="text-white text-xl font-bold tracking-tight">Analiz Edilen Görüntü</h2>
                     </div>
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="relative group overflow-hidden rounded-lg border border-white/10">
-                            <img alt="Fundus Image" className="w-full h-80 object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCipCPFITFtCHaJ9ru8TV9iz0f_IGM0D2a0dJJECFzaHttFigWooIyfe_MQgolI2zv-VIzlupLEAE2fY6SMqhpi5Ufqjxjv4o3csnFcRGJRarix0KfuGESyNE8prdzsvE4xnCuKBRgLTSXxo9fBDiIXDt0bxl3xTrMPV67mzz-M-EbcIr5s9Ipy6oX413wv67XXPsIz8p-M6B3LYMn4VuvqgUDbtO76qY_1Jpztr6xT-EF1zQs8PPdVRzlqaMUP844nrjtog5j__mf3"/>
+                    <div className="flex justify-center md:justify-start">
+                        <div className="relative group overflow-hidden rounded-lg border border-white/10 w-full md:w-2/3 lg:w-1/2">
+                            <img alt="Fundus Image" className="w-full h-auto aspect-video object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCipCPFITFtCHaJ9ru8TV9iz0f_IGM0D2a0dJJECFzaHttFigWooIyfe_MQgolI2zv-VIzlupLEAE2fY6SMqhpi5Ufqjxjv4o3csnFcRGJRarix0KfuGESyNE8prdzsvE4xnCuKBRgLTSXxo9fBDiIXDt0bxl3xTrMPV67mzz-M-EbcIr5s9Ipy6oX413wv67XXPsIz8p-M6B3LYMn4VuvqgUDbtO76qY_1Jpztr6xT-EF1zQs8PPdVRzlqaMUP844nrjtog5j__mf3"/>
                             <div className="absolute inset-0 bg-cyan-900/10 mix-blend-overlay pointer-events-none"></div>
                         </div>
                     </div>
@@ -236,9 +281,6 @@ const AnalysisResultPage = () => {
                         Bu analiz RetinAL yapay zeka teknolojisi kullanılarak oluşturulmuştur.<br/>
                         Sonuçlar bilgilendirme amaçlıdır ve profesyonel tıbbi teşhis yerine geçmez.
                     </p>
-                </div>
-                <div className="text-cyan-400 font-bold tracking-widest text-sm uppercase">
-                    RetinAL Sağlık Insight
                 </div>
             </div>
         </div>

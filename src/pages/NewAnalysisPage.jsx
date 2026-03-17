@@ -2,6 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 
 const NewAnalysisPage = () => {
   const [selectedImage, setSelectedImage] = useState("https://lh3.googleusercontent.com/aida-public/AB6AXuBQes98Jgl4LN-V9Tsc6Q1L0OQUUiiAKhFD8Ivi31tJ8RVMRYeEUeRFJDx6pK8CZulD3vr-pMDI0t4e5xkX0C_NpfYt4zuZLESUAknNxEjd1iz7_AcbMO8knCnUJx6oAkPqszMOheo6LTrGcQxMqh4UMPt1LSSJKNndmERQm-PGs64iUfmjMh_4FVUMe23yj5Ypk3sgLwfncx_DXUY_QLa12cWePS7YYK6CWAaBIIN_5fslaPEbtINHAUdyehCtt-9suDQDfh5XxZCj");
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [viewDate, setViewDate] = useState(new Date());
   const fileInputRef = useRef(null);
 
   const handleImageChange = (e) => {
@@ -17,6 +20,48 @@ const NewAnalysisPage = () => {
 
   const triggerFileInput = () => {
     fileInputRef.current.click();
+  };
+
+  const changeMonth = (offset) => {
+    const newDate = new Date(viewDate);
+    newDate.setMonth(newDate.getMonth() + offset);
+    setViewDate(newDate);
+  };
+
+  const renderCalendarDays = () => {
+    const days = [];
+    const firstDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const lastDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+    const startDay = firstDayOfMonth.getDay();
+    const totalDays = lastDayOfMonth.getDate();
+
+    // Fill blanks
+    for (let i = 0; i < startDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-8"></div>);
+    }
+
+    // Fill days
+    for (let d = 1; d <= totalDays; d++) {
+      const date = new Date(viewDate.getFullYear(), viewDate.getMonth(), d);
+      const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+      const isToday = date.toDateString() === new Date().toDateString();
+
+      days.push(
+        <button
+          key={d}
+          onClick={() => {
+            setSelectedDate(date);
+            setShowCalendar(false);
+          }}
+          className={`h-8 w-8 rounded-lg text-[11px] transition-all flex items-center justify-center
+            ${isSelected ? 'bg-cyan-500 text-slate-900 font-bold' : 'hover:bg-cyan-500/20 text-slate-300'}
+            ${isToday && !isSelected ? 'border border-cyan-500/50 text-cyan-400' : ''}`}
+        >
+          {d}
+        </button>
+      );
+    }
+    return days;
   };
 
   useEffect(() => {
@@ -78,7 +123,7 @@ const NewAnalysisPage = () => {
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             {/* Left Section: Information */}
-            <section className="rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-sm p-8 shadow-2xl transition-all hover:bg-white/[0.05]">
+            <section className={`rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-sm p-8 shadow-2xl transition-all hover:bg-white/[0.05] relative ${showCalendar ? 'z-50' : 'z-20'}`}>
               <div className="mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
                 <span className="material-symbols-outlined text-cyan-400">person</span>
                 <h2 className="text-lg font-medium tracking-wide text-white">Kişisel Bilgiler</h2>
@@ -97,9 +142,54 @@ const NewAnalysisPage = () => {
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Yaş</label>
-                    <input className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all placeholder:text-slate-600" placeholder="Örn: 45" type="number" />
+                  <div className="flex flex-col gap-2 relative">
+                    <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Doğum Tarihi</label>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        readOnly
+                        placeholder="GG / AA / YYYY"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 outline-none transition-all cursor-pointer placeholder:text-slate-600"
+                        onClick={() => setShowCalendar(!showCalendar)}
+                        value={selectedDate ? new Intl.DateTimeFormat('tr-TR').format(selectedDate) : ""}
+                      />
+                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-cyan-500/50 pointer-events-none">calendar_month</span>
+                      
+                      {showCalendar && (
+                        <div className="absolute top-full left-0 mt-3 z-[100] w-[320px] rounded-2xl bg-[#0a0f1d] border-2 border-cyan-500/30 backdrop-blur-xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                          <div className="flex items-center justify-between mb-4">
+                            <button onClick={() => changeMonth(-1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
+                              <span className="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <span className="text-sm font-semibold tracking-widest text-white uppercase">
+                              {new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(viewDate)}
+                            </span>
+                            <button onClick={() => changeMonth(1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
+                              <span className="material-symbols-outlined">chevron_right</span>
+                            </button>
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                            {['Pz', 'Pt', 'Sa', 'Çr', 'Pr', 'Cu', 'Ct'].map(day => (
+                              <span key={day} className="text-[10px] font-bold text-cyan-600/60 uppercase">{day}</span>
+                            ))}
+                          </div>
+                          
+                          <div className="grid grid-cols-7 gap-1">
+                            {renderCalendarDays()}
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t border-white/5 flex justify-end">
+                            <button 
+                              onClick={() => setShowCalendar(false)}
+                              className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest hover:text-cyan-300 transition-colors"
+                            >
+                              Kapat
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Cinsiyet</label>
@@ -164,9 +254,61 @@ const NewAnalysisPage = () => {
               </div>
 
               <div className="flex justify-center lg:justify-end">
-                <button className="flex items-center gap-3 rounded-full bg-cyan-600 hover:bg-cyan-500 px-12 py-4 text-base font-bold text-slate-900 shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:scale-[1.05] active:scale-[0.95] transition-all">
-                  <span className="material-symbols-outlined">analytics</span>
-                  ANALİZİ BAŞLAT
+                <button
+                  className="group relative inline-flex items-center justify-center overflow-hidden"
+                  style={{
+                    gap: '20px',
+                    padding: '18px 64px',
+                    fontWeight: '600',
+                    color: '#06b6d4',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.25em',
+                    backgroundColor: 'transparent',
+                    borderRadius: '999px',
+                    border: '2px solid #06b6d4',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    zIndex: 10,
+                    outline: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
+                    e.currentTarget.style.transform = 'scale(1.03)';
+                    e.currentTarget.style.boxShadow = '0 0 30px rgba(6, 182, 212, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {/* Sweep layer */}
+                  <div
+                    className="sweep-layer absolute inset-0 z-0"
+                    style={{
+                      background: 'linear-gradient(to right, transparent, rgba(6, 182, 212, 0.2), transparent)',
+                      transform: 'translateX(-150%) skewX(-15deg)',
+                    }}
+                  ></div>
+
+                  <span className="relative z-10 flex items-center" style={{ gap: '14px' }}>
+                    ANALİZİ BAŞLAT
+                    <svg
+                      className="transition-transform duration-300 group-hover:translate-x-2"
+                      style={{ width: '20px', height: '20px' }}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="square"
+                        strokeLinejoin="miter"
+                        strokeWidth="2.5"
+                        d="M14 5l7 7m0 0l-7 7m7-7H3"
+                      />
+                    </svg>
+                  </span>
                 </button>
               </div>
             </div>

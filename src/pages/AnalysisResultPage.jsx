@@ -2,13 +2,30 @@ import React, { useEffect, useRef, useState } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+
 const AnalysisResultPage = () => {
   const reportRef = useRef();
-  // Örnek olarak %85 (Yüksek Risk) ayarlandı. 
-  // Dinamik olması durumunda bu state değiştiğinde renkler de değişecektir.
-  const [riskScore, setRiskScore] = useState(85); 
+  
+  const rawScore = parseFloat(localStorage.getItem("riskScore")); // 0-1 arası model çıktısı
+  const [riskScore, setRiskScore] = useState(Math.round(rawScore)); // % şeklinde
+  const [riskLabel, setRiskLabel] = useState(rawScore > 50 ? "Glaucoma" : "Normal");
+  const [patientInfo, setPatientInfo] = useState({
+    name: localStorage.getItem("patientName"),
+    surname: localStorage.getItem("patientSurname"),
+    tc: localStorage.getItem("patientTcNo"),
+    dob: localStorage.getItem("patientDob"),
+    gender: localStorage.getItem("patientGender") || "-",
+    analysisDate: new Date().toLocaleDateString("tr-TR"),
+  });
+
+  const patientImage = localStorage.getItem("patientImage") || "https://via.placeholder.com/400";
+
+  const [llmReport, setLlmReport] = useState(
+    localStorage.getItem("report") || "Rapor hazırlanırken bir hata oluştu."
+  );
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const style = document.createElement('style');
     style.textContent = `
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -68,6 +85,7 @@ const AnalysisResultPage = () => {
   };
 
   const riskStyles = getRiskColors(riskScore);
+  const displayLabel = riskLabel === "Glaucoma" ? riskStyles.label : "Düşük Risk"; 
 
   const generatePDF = async () => {
     const element = reportRef.current;
@@ -98,15 +116,15 @@ const AnalysisResultPage = () => {
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
     
     pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save('RetinAL-Analiz-Raporu.pdf');
+    pdf.save('RetinAI-Analiz-Raporu.pdf');
   };
 
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'RetinAL Göz Analiz Raporu',
-          text: 'RetinAL yapay zeka tarafından hazırlanan göz sağlığı raporumu inceleyin.',
+          title: 'RetinAI Göz Analiz Raporu',
+          text: 'RetinAI yapay zeka tarafından hazırlanan göz sağlığı raporumu inceleyin.',
           url: window.location.href,
         });
       } catch (error) {
@@ -139,7 +157,7 @@ const AnalysisResultPage = () => {
             <span className="material-symbols-outlined text-3xl">visibility</span>
           </div>
           <h2 className="text-xl font-light tracking-[0.2em] text-white">
-            Retin<span className="font-bold text-cyan-400">AL</span>
+            Retin<span className="font-bold text-cyan-400">AI</span>
           </h2>
         </div>
         <div className="flex gap-3">
@@ -182,15 +200,23 @@ const AnalysisResultPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 border-t border-white/10">
                     <div className="flex flex-col gap-1">
                         <p className="text-cyan-500/80 text-xs font-bold uppercase tracking-widest">Kullanıcı</p>
-                        <p className="text-white text-base font-medium">Ahmet Yılmaz</p>
+                        <p className="text-white text-base font-medium">{patientInfo.name} {patientInfo.surname}</p>
                     </div>
                     <div className="flex flex-col gap-1">
                         <p className="text-cyan-500/80 text-xs font-bold uppercase tracking-widest">Doğum Tarihi</p>
-                        <p className="text-white text-base font-medium">12.05.1978</p>
+                        <p className="text-white text-base font-medium">{patientInfo.dob}</p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <p className="text-cyan-500/80 text-xs font-bold uppercase tracking-widest">T.C. Kimlik No</p>
+                        <p className="text-white text-base font-medium">{patientInfo.tc || "----------"}</p>
+</div>
+                    <div className="flex flex-col gap-1">
+                        <p className="text-cyan-500/80 text-xs font-bold uppercase tracking-widest">Cinsiyet</p>
+                        <p className="text-white text-base font-medium capitalize">{patientInfo.gender}</p>
                     </div>
                     <div className="flex flex-col gap-1">
                         <p className="text-cyan-500/80 text-xs font-bold uppercase tracking-widest">Analiz Tarihi</p>
-                        <p className="text-white text-base font-medium">24.05.2024</p>
+                        <p className="text-white text-base font-medium">{patientInfo.analysisDate}</p>
                     </div>
                 </div>
             </div>
@@ -207,7 +233,7 @@ const AnalysisResultPage = () => {
                             <p className={`${riskStyles.text} text-sm font-bold uppercase tracking-widest`}>Genel Risk Durumu</p>
                             <div className="flex items-baseline gap-2">
                                 <p className={`${riskStyles.text} text-3xl font-black leading-tight`}>%{riskScore}</p>
-                                <p className={`${riskStyles.text} font-bold`}>{riskStyles.label}</p>
+                                <p className={`${riskStyles.text} font-bold`}>{riskLabel} ({riskStyles.label})</p>
                             </div>
                             <div className="w-full bg-white/10 rounded-full h-2 mt-2">
                                 <div className={`${riskStyles.bar} h-2 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.2)]`} style={{ width: `${riskScore}%` }}></div>
@@ -220,41 +246,14 @@ const AnalysisResultPage = () => {
                 <section className="bg-white/5 rounded-xl p-8 border border-white/10">
                     <div className="flex items-center gap-2 mb-6">
                         <span className="material-symbols-outlined text-cyan-400">psychology</span>
-                        <h2 className="text-white text-xl font-bold tracking-tight">Yapay Zeka Yorumu</h2>
+                        <h2 className="text-white text-xl font-bold tracking-tight">Ön Değerlendirme Yorumu</h2>
                     </div>
                     <div className="space-y-6 text-slate-300 leading-relaxed text-lg font-light">
-                        <p>
-                            Yapılan göz dibi görüntüsü analizi sonucunda, retina üzerinde yapısal değişimler gözlemlenmiştir. Sinir tabakası bölgelerinde belirgin incelmeler saptanmıştır.
-                        </p>
-                        <div className="bg-white/5 p-6 rounded-lg border-l-4 border-cyan-400">
-                            <p className="italic text-slate-200">
-                                "Görüntülerdeki damar yapılarında kayma ve doku değişimleri mevcuttur. %{riskScore}'lik {riskStyles.label.toLowerCase()} puanı, bu yapısal değişimlerle doğrudan ilişkilidir."
-                            </p>
+                        <div className="whitespace-pre-wrap">
+                          {llmReport}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                            <div className="space-y-3">
-                                <h4 className="font-medium text-white flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-sm text-cyan-400">stars</span>
-                                    Dikkat Çeken Noktalar
-                                </h4>
-                                <ul className="list-disc list-inside space-y-1 text-base ml-2 text-slate-400">
-                                    <li>Göz dibi derinliğinde artış</li>
-                                    <li>Sinir lifi tabakasında zayıflama</li>
-                                    <li>Damar yapısında belirginleşme</li>
-                                </ul>
-                            </div>
-                            <div className="space-y-3">
-                                <h4 className="font-medium text-white flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-sm text-cyan-400">lightbulb</span>
-                                    Sonraki Adımlar
-                                </h4>
-                                <ul className="list-disc list-inside space-y-1 text-base ml-2 text-slate-400">
-                                    <li>Göz tansiyonu kontrolü</li>
-                                    <li>Uzman görüşü almanız önerilir</li>
-                                    <li>Düzenli takip planı oluşturun</li>
-                                </ul>
-                            </div>
-                        </div>
+                        
+                        
                     </div>
                 </section>
 
@@ -266,7 +265,7 @@ const AnalysisResultPage = () => {
                     </div>
                     <div className="flex justify-center md:justify-start">
                         <div className="relative group overflow-hidden rounded-lg border border-white/10 w-full md:w-2/3 lg:w-1/2">
-                            <img alt="Fundus Image" className="w-full h-auto aspect-video object-cover transition-transform duration-700 group-hover:scale-105" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCipCPFITFtCHaJ9ru8TV9iz0f_IGM0D2a0dJJECFzaHttFigWooIyfe_MQgolI2zv-VIzlupLEAE2fY6SMqhpi5Ufqjxjv4o3csnFcRGJRarix0KfuGESyNE8prdzsvE4xnCuKBRgLTSXxo9fBDiIXDt0bxl3xTrMPV67mzz-M-EbcIr5s9Ipy6oX413wv67XXPsIz8p-M6B3LYMn4VuvqgUDbtO76qY_1Jpztr6xT-EF1zQs8PPdVRzlqaMUP844nrjtog5j__mf3"/>
+                            <img alt="Fundus Image" className="w-full h-auto aspect-video object-cover transition-transform duration-700 group-hover:scale-105" src={patientImage}/>
                             <div className="absolute inset-0 bg-cyan-900/10 mix-blend-overlay pointer-events-none"></div>
                         </div>
                     </div>
@@ -278,7 +277,7 @@ const AnalysisResultPage = () => {
                 <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-cyan-400 bg-cyan-400/10 p-2 rounded-full">info</span>
                     <p className="text-slate-400 text-xs leading-relaxed font-light">
-                        Bu analiz RetinAL yapay zeka teknolojisi kullanılarak oluşturulmuştur.<br/>
+                        Bu analiz RetinAI yapay zeka teknolojisi kullanılarak oluşturulmuştur.<br/>
                         Sonuçlar bilgilendirme amaçlıdır ve profesyonel tıbbi teşhis yerine geçmez.
                     </p>
                 </div>
@@ -288,7 +287,7 @@ const AnalysisResultPage = () => {
 
       <footer className="relative z-10 mt-auto border-t border-white/5 bg-black/40 px-10 py-8 backdrop-blur-sm no-print">
         <p className="text-center text-[11px] font-medium tracking-[0.2em] text-slate-500 uppercase">
-          SECURE MEDICAL PROTOCOL // DIAGNOSTICS READY // © 2024 RetinAL
+          SECURE MEDICAL PROTOCOL // DIAGNOSTICS READY // © 2024 RetinAI
         </p>
       </footer>
     </div>

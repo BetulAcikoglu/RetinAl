@@ -270,7 +270,7 @@ const HomePage = () => {
               marginLeft: '0.3em',
             }}
           >
-            RetinAL
+            RetinAI
           </h1>
 
           <div className="relative z-10 flex flex-col items-center" style={{ gap: '10px' }}>

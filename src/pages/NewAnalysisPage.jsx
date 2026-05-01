@@ -8,17 +8,50 @@ const NewAnalysisPage = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [viewDate, setViewDate] = useState(new Date());
   const fileInputRef = useRef(null);
-
+  const [vlmText, setVlmText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [gender, setGender] = useState("");
+  const [tcNo, setTcNo] = useState("");
+  
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+  const file = e.target.files[0];
+    fileInputRef.current.file = file;
+
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result);
       };
       reader.readAsDataURL(file);
-    }
-  };
+
+    // 🔥 BURASI YENİ
+      handleVLMAnalyze(file);
+  }
+};
+
+  const handleVLMAnalyze = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    setVlmText("Görüntü analiz ediliyor...");
+
+    const res = await fetch("http://localhost:8000/vlm", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    setVlmText(data.vlm_comment);
+
+  } catch (err) {
+    console.error(err);
+    setVlmText("VLM hatası");
+  }
+};
 
   const triggerFileInput = () => {
     fileInputRef.current.click();
@@ -91,6 +124,48 @@ const NewAnalysisPage = () => {
     };
   }, []);
 
+  const handleAnalyze = async () => {
+  const file = fileInputRef.current.file;
+
+  if (!file) {
+    alert("Lütfen bir görsel seçin");
+    return;
+  }
+
+  setLoading(true);
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("http://localhost:8000/analyze", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    // 🔥 BURADA ARTIK MODEL + LLM VAR
+      localStorage.setItem("riskScore", data.risk_score);
+      localStorage.setItem("label", data.label);
+      localStorage.setItem("report", data.report); // Backend'den gelen LLM raporu
+      localStorage.setItem("patientName", firstName);
+      localStorage.setItem("patientSurname", lastName);
+      localStorage.setItem("patientGender", gender);
+      localStorage.setItem("patientDob", selectedDate ? new Intl.DateTimeFormat('tr-TR').format(selectedDate) : "");
+      localStorage.setItem("patientImage", selectedImage); // Analiz edilen resmi de taşıyalım
+      localStorage.setItem("patientTcNo", tcNo); // T.C. Kimlik No'yu da saklayalım
+
+    navigate('/analysis-result');
+
+  } catch (err) {
+    console.error(err);
+    alert("Sunucu hatası");
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <div className="min-h-screen flex flex-col relative text-slate-200" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#030712' }}>
       {/* Background elements consistent with HomePage */}
@@ -107,7 +182,7 @@ const NewAnalysisPage = () => {
             <span className="material-symbols-outlined text-3xl">visibility</span>
           </div>
           <h2 className="text-xl font-light tracking-[0.2em] text-white">
-            Retin<span className="font-bold text-cyan-400">AL</span>
+            Retin<span className="font-bold text-cyan-400">AI</span>
           </h2>
         </div>
 
@@ -135,13 +210,27 @@ const NewAnalysisPage = () => {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Ad</label>
-                    <input className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all placeholder:text-slate-600" placeholder="Adınız" type="text" />
+                    <input className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all placeholder:text-slate-600" placeholder="Adınız" type="text"value={firstName}
+  onChange={(e) => setFirstName(e.target.value)} />
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Soyad</label>
-                    <input className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all placeholder:text-slate-600" placeholder="Soyadınız" type="text" />
+                    <input className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all placeholder:text-slate-600" placeholder="Soyadınız" type="text"value={lastName}
+  onChange={(e) => setLastName(e.target.value)} />
                   </div>
                 </div>
+
+                <div className="flex flex-col gap-2">
+  <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">T.C. Kimlik No</label>
+  <input 
+    className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 outline-none transition-all placeholder:text-slate-600" 
+    placeholder="11 Haneli TC No" 
+    type="text"
+    maxLength="11"
+    value={tcNo}
+    onChange={(e) => setTcNo(e.target.value.replace(/\D/g, ""))} // Sadece rakam girişi
+  />
+</div>
 
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="flex flex-col gap-2 relative">
@@ -149,26 +238,70 @@ const NewAnalysisPage = () => {
                     <div className="relative">
                       <input 
                         type="text"
-                        readOnly
                         placeholder="GG / AA / YYYY"
-                        className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 outline-none transition-all cursor-pointer placeholder:text-slate-600"
-                        onClick={() => setShowCalendar(!showCalendar)}
+                        className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 outline-none transition-all cursor-text placeholder:text-slate-600"
                         value={selectedDate ? new Intl.DateTimeFormat('tr-TR').format(selectedDate) : ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // Eğer kullanıcı siliyorsa state'i temizle
+                          if(val === "") setSelectedDate(null);
+                          
+                          // Tarih ayrıştırma (01.01.2000 gibi)
+                          const parts = val.split(/[./-]/);
+                          if (parts.length === 3 && parts[2].length === 4) {
+                            const d = parseInt(parts[0], 10);
+                            const m = parseInt(parts[1], 10) - 1;
+                            const y = parseInt(parts[2], 10);
+                            const newD = new Date(y, m, d);
+                            if (!isNaN(newD.getTime())) {
+                              setSelectedDate(newD);
+                              setViewDate(newD); // Takvimi o tarihe ışınla
+                            }
+                          }
+                        }}
+                        onClick={() => setShowCalendar(true)}
                       />
-                      <span className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-cyan-500/50 pointer-events-none">calendar_month</span>
+                      <span 
+                        className="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-cyan-500/50 cursor-pointer"
+                        onClick={() => setShowCalendar(!showCalendar)}
+                      >
+                        calendar_month
+                      </span>
                       
                       {showCalendar && (
                         <div className="absolute top-full left-0 mt-3 z-[100] w-[320px] rounded-2xl bg-[#0a0f1d] border-2 border-cyan-500/30 backdrop-blur-xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                           <div className="flex items-center justify-between mb-4">
-                            <button onClick={() => changeMonth(-1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
-                              <span className="material-symbols-outlined">chevron_left</span>
-                            </button>
-                            <span className="text-sm font-semibold tracking-widest text-white uppercase">
+                            <div className="flex gap-1">
+                              {/* Hızlı Yıl Geri */}
+                              <button type="button" onClick={() => {
+                                const d = new Date(viewDate);
+                                d.setFullYear(d.getFullYear() - 1);
+                                setViewDate(d);
+                              }} className="p-1 hover:text-cyan-400 text-slate-500 transition-colors">
+                                <span className="material-symbols-outlined text-sm">keyboard_double_arrow_left</span>
+                              </button>
+                              <button type="button" onClick={() => changeMonth(-1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
+                                <span className="material-symbols-outlined">chevron_left</span>
+                              </button>
+                            </div>
+                            
+                            <span className="text-[11px] font-bold tracking-widest text-white uppercase">
                               {new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(viewDate)}
                             </span>
-                            <button onClick={() => changeMonth(1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
-                              <span className="material-symbols-outlined">chevron_right</span>
-                            </button>
+                            
+                            <div className="flex gap-1">
+                              <button type="button" onClick={() => changeMonth(1)} className="p-1 hover:text-cyan-400 text-slate-400 transition-colors">
+                                <span className="material-symbols-outlined">chevron_right</span>
+                              </button>
+                              {/* Hızlı Yıl İleri */}
+                              <button type="button" onClick={() => {
+                                const d = new Date(viewDate);
+                                d.setFullYear(d.getFullYear() + 1);
+                                setViewDate(d);
+                              }} className="p-1 hover:text-cyan-400 text-slate-500 transition-colors">
+                                <span className="material-symbols-outlined text-sm">keyboard_double_arrow_right</span>
+                              </button>
+                            </div>
                           </div>
                           
                           <div className="grid grid-cols-7 gap-1 text-center mb-2">
@@ -182,10 +315,7 @@ const NewAnalysisPage = () => {
                           </div>
                           
                           <div className="mt-4 pt-4 border-t border-white/5 flex justify-end">
-                            <button 
-                              onClick={() => setShowCalendar(false)}
-                              className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest hover:text-cyan-300 transition-colors"
-                            >
+                            <button type="button" onClick={() => setShowCalendar(false)} className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest hover:text-cyan-300 transition-colors">
                               Kapat
                             </button>
                           </div>
@@ -195,7 +325,8 @@ const NewAnalysisPage = () => {
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Cinsiyet</label>
-                    <select className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all appearance-none cursor-pointer">
+                    <select className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/20 outline-none transition-all appearance-none cursor-pointer"value={gender} // 1. Bu satırı ekle
+  onChange={(e) => setGender(e.target.value)}>
                       <option className="bg-slate-900" value="">Seçiniz</option>
                       <option className="bg-slate-900" value="erkek">Erkek</option>
                       <option className="bg-slate-900" value="kadin">Kadın</option>
@@ -246,47 +377,52 @@ const NewAnalysisPage = () => {
           <div className="mt-10 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-sm p-8 shadow-2xl">
             <div className="mb-8 flex items-center gap-3 border-b border-white/5 pb-4">
               <span className="material-symbols-outlined text-cyan-400">psychology</span>
-              <h2 className="text-lg font-medium tracking-wide text-white">Akıllı Analiz Sonucu</h2>
+              <h2 className="text-lg font-medium tracking-wide text-white">Akıllı Ön Analiz Sonucu</h2>
             </div>
 
             <div className="space-y-8">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium uppercase tracking-[0.15em] text-cyan-500/80">Analiz Özeti</label>
-                <textarea className="w-full resize-none rounded-xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300 focus:border-cyan-400 outline-none transition-all italic placeholder:text-slate-600" placeholder="Analiz yapıldıktan sonra sonuçlar burada görüntülenecektir..." rows="4"></textarea>
+                <textarea value={vlmText} readOnly className="w-full resize-none rounded-xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300 focus:border-cyan-400 outline-none transition-all italic placeholder:text-slate-600"rows="4"/>
               </div>
 
               <div className="flex justify-center lg:justify-end">
                 <button
-                  onClick={() => navigate('/analysis-result')}
-                  className="group relative inline-flex items-center justify-center overflow-hidden"
-                  style={{
-                    gap: '20px',
-                    padding: '18px 64px',
-                    fontWeight: '600',
-                    color: '#06b6d4',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.25em',
-                    backgroundColor: 'transparent',
-                    borderRadius: '999px',
-                    border: '2px solid #06b6d4',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    position: 'relative',
-                    zIndex: 10,
-                    outline: 'none',
-                  }}
-                  onMouseEnter={(e) => {
+                onClick={handleAnalyze}
+                disabled={loading} // Yükleme başlarsa butona tekrar basılmasını engeller
+                className="group relative inline-flex items-center justify-center overflow-hidden"
+                style={{
+                  gap: '20px',
+                  padding: '18px 64px',
+                  fontWeight: '600',
+                  color: '#06b6d4',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.25em',
+                  backgroundColor: 'transparent',
+                  borderRadius: '999px',
+                  border: '2px solid #06b6d4',
+                  cursor: loading ? 'not-allowed' : 'pointer', // Yükleniyorsa imleci engelli yapar
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  zIndex: 10,
+                  outline: 'none',
+                  opacity: loading ? 0.7 : 1, // Yüklenirken biraz soluklaşır
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) { // Sadece yükleme yoksa efektler çalışsın
                     e.currentTarget.style.backgroundColor = 'rgba(6, 182, 212, 0.1)';
                     e.currentTarget.style.transform = 'scale(1.03)';
                     e.currentTarget.style.boxShadow = '0 0 30px rgba(6, 182, 212, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  {/* Sweep layer */}
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* Sweep layer - Yükleme yoksa parlasın */}
+                {!loading && (
                   <div
                     className="sweep-layer absolute inset-0 z-0"
                     style={{
@@ -294,25 +430,37 @@ const NewAnalysisPage = () => {
                       transform: 'translateX(-150%) skewX(-15deg)',
                     }}
                   ></div>
+                )}
 
-                  <span className="relative z-10 flex items-center" style={{ gap: '14px' }}>
-                    ANALİZİ BAŞLAT
-                    <svg
-                      className="transition-transform duration-300 group-hover:translate-x-2"
-                      style={{ width: '20px', height: '20px' }}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="square"
-                        strokeLinejoin="miter"
-                        strokeWidth="2.5"
-                        d="M14 5l7 7m0 0l-7 7m7-7H3"
-                      />
-                    </svg>
-                  </span>
-                </button>
+                <span className="relative z-10 flex items-center" style={{ gap: '14px' }}>
+                  {loading ? (
+                    // 🔄 YÜKLENİYOR HALİ: Yazı değişir ve yanına dönen daire gelir
+                    <>
+                      <div className="w-5 h-5 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+                      ANALİZ YAPILIYOR...
+                    </>
+                  ) : (
+                    // ✅ NORMAL HALİ: Senin orijinal tasarımın
+                    <>
+                      ANALİZİ BAŞLAT
+                      <svg
+                        className="transition-transform duration-300 group-hover:translate-x-2"
+                        style={{ width: '20px', height: '20px' }}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="square"
+                          strokeLinejoin="miter"
+                          strokeWidth="2.5"
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    </>
+                  )}
+                </span>
+              </button>
               </div>
             </div>
           </div>
@@ -321,7 +469,7 @@ const NewAnalysisPage = () => {
 
       <footer className="relative z-10 mt-auto border-t border-white/5 bg-black/40 px-10 py-8 backdrop-blur-sm">
         <p className="text-center text-[11px] font-medium tracking-[0.2em] text-slate-500 uppercase">
-          SECURE MEDICAL PROTOCOL // DIAGNOSTICS READY // © 2024 RetinAL
+          SECURE MEDICAL PROTOCOL // DIAGNOSTICS READY // © 2024 RetinAI
         </p>
       </footer>
     </div>

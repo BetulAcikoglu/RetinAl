@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+venv/
+Backend/venv/
+__pycache__/
+*.keras
+*.h5
+*.dll
+node_modules/

@@ -2,24 +2,24 @@ import os
 import requests
 import json
 
-# OpenRouter API anahtarını buraya ekle
-# Güvenlik için ortam değişkeninden alamazsa buraya tırnak içinde anahtarını yazabilirsin
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "Kendi anahtarınızı buraya ekleyin")
+# =====================================================================
+# 🔐 GOOGLE AI STUDIO AYARLARI
+# =====================================================================
+# Google AI Studio'dan aldığın AIzaSy... ile başlayan key'i buraya tırnak içinde yaz
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "kendi_google_ai_studio_keyini_buraya_yaz")
 
 def generate_report(risk_score):
-    # Stabil çalışan ücretsiz model ID'si
-    model_name = "google/gemma-3-12b-it:free"
-
-    url = "https://openrouter.ai/api/v1/chat/completions"
+    """
+    Google AI Studio üzerindeki Gemma 4 modelini kullanarak 
+    glokom risk skoruna göre Türkçe medikal rapor oluşturur.
+    """
+    # Google AI Studio Gemma 4-26b MoE Modeli Resmi Endpoint'i
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000", # Bazı sağlayıcılar için gerekli olabilir
-        "X-Title": "RetinAL Glaucoma Project"
+        "Content-Type": "application/json"
     }
 
-    # 'system' rolü desteklenmediği için talimatı 'user' promptuna yedirdik
     prompt = f"""
     Sen deneyimli bir oftalmoloji (göz hastalıkları) uzmanısın. Aşağıdaki verilere dayanarak, hastanın kimlik bilgilerine girmeden SADECE tıbbi bir analiz metni hazırla.
 
@@ -37,35 +37,39 @@ def generate_report(risk_score):
     3. Öneriler ve Takip: (Hastanın atması gereken klinik adımları belirt)
 
     Not: Raporun sonuna mutlaka 'Bu bir yapay zeka ön analizidir, kesin tanı için doktor muayenesi şarttır.' uyarısını ekle.
+    
+    Yanıtını tamamen Türkçe olarak ver.
     """
 
-    # 'messages' listesinde artık 'system' rolü yok, sadece 'user' var.
+    # Google Gemini ve Gemma modellerinin beklediği resmi istek (payload) yapısı
     data = {
-        "model": model_name,
-        "messages": [
-            {
-                "role": "user", 
-                "content": prompt
-            }
-        ]
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
+        "generationConfig": {
+            "maxOutputTokens": 2000,
+            "temperature": 0.2  # Tıbbi raporlarda modelin uydurmaması (tutarlı olması) için düşük sıcaklık
+        }
     }
 
     try:
         response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()  # Hata kodu (400, 403, 429 vb.) dönerse doğrudan exception fırlatır
         result = response.json()
 
-        if "choices" in result:
-            full_content = result["choices"][0]["message"]["content"]
+        # Google API'den gelen yanıt metnini güvenli bir şekilde ayıklama adımı
+        if "candidates" in result and len(result["candidates"]) > 0:
+            candidate = result["candidates"][0]
+            if "content" in candidate and "parts" in candidate["content"]:
+                full_content = candidate["content"]["parts"][0]["text"]
+                return full_content
             
-            # Eğer model cevapta düşünme süreçlerini (think) belirtirse temizle
-            if "</think>" in full_content:
-                return full_content.split("</think>")[-1].strip()
-            
-            return full_content
-        else:
-            # Hata detayını terminalde görebilmek için
-            print("LLM API Hatası Detayı:", json.dumps(result, indent=2))
-            return "Rapor şu an oluşturulamadı. (Model yoğun olabilir veya API anahtarı hatası)"
+        print("Google API Beklenmedik Yanıt Formatı:", json.dumps(result, indent=2))
+        return "Rapor formatı çözülemedi. (API başarılı döndü fakat içerik boş)"
             
     except Exception as e:
-        return f"Bağlantı hatası oluştu: {str(e)}"
+        # Sunum anında hata kodunu terminalde net görebilmen için detaylı print bırakıyoruz
+        print(f"Gemma 4 API Bağlantı Hatası: {str(e)}")
+        return f"Rapor şu an oluşturulamadı. Lütfen tekrar deneyin. (Hata: {str(e)})"
